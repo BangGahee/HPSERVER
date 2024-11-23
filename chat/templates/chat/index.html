@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Llama</title>
+</head>
+<body>
+    <h1>Chat with Llama</h1>
+
+    <div id="chat-window" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll;">
+        <!-- 채팅 메시지가 여기에 표시됩니다 -->
+    </div>
+
+    <form method="POST" action="/chat/" id="chat-form">
+        {% csrf_token %} <!-- CSRF 보호를 위한 토큰 -->
+        <input type="text" id="message" name="message" placeholder="Type your message here" required>
+        <button type="submit">Send</button>
+    </form>
+
+    <script>
+        document.getElementById('chat-form').addEventListener('submit', async function(event) {
+            event.preventDefault(); // 기본 동작(페이지 새로고침) 방지
+
+            const form = event.target;
+            const formData = new FormData(form);
+
+            // 서버로 POST 요청
+            const response = await fetch(form.action, {
+                method: form.method,
+                headers: {
+                    "X-CSRFToken": getCookie('csrftoken'), // CSRF 토큰 추가
+                },
+                body: new URLSearchParams(formData),
+            });
+
+            const data = await response.json();
+            const chatWindow = document.getElementById("chat-window");
+            const message = formData.get('message');
+
+            chatWindow.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+            if (data.message) {
+                chatWindow.innerHTML += `<p><strong>Llama:</strong> ${data.message}</p>`;
+            } else {
+                chatWindow.innerHTML += `<p><strong>Error:</strong> ${data.error}</p>`;
+            }
+
+            // 입력 필드 초기화
+            document.getElementById("message").value = '';
+        });
+
+        // CSRF 토큰을 쿠키에서 가져오는 함수
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
