@@ -1,64 +1,93 @@
 from transformers import LlamaTokenizer, AutoModelForCausalLM
+from peft import PeftModel
 import torch
 from django.http import JsonResponse
 from django.shortcuts import render
 import gc  # For garbage collection
 
-HUGGINGFACE_MODEL_NAME = "reciprocate/tiny-llama"
+# Hugging Face 토큰과 디바이스 설정
 HUGGINGFACE_AUTH_TOKEN = "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"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# 모델과 토크나이저 전역 변수
 tokenizer = None
-model = None
+reinforce_model = None
+unlearn_model = None
 
 def index(request):
     """Render the main page."""
     return render(request, 'chat/index.html')
 
-def load_model():
-    """Load the model and tokenizer."""
-    global tokenizer, model
+def load_models():
+    """Load the models and tokenizer."""
+    global tokenizer, reinforce_model, unlearn_model
     try:
-        print("Loading model...")
+        print("Loading models...")
         tokenizer = LlamaTokenizer.from_pretrained(
-            HUGGINGFACE_MODEL_NAME,
-            token=HUGGINGFACE_AUTH_TOKEN
+            "meta-llama/Llama-2-7b-chat-hf",
+            use_auth_token=HUGGINGFACE_AUTH_TOKEN
         )
-        model = AutoModelForCausalLM.from_pretrained(
-            HUGGINGFACE_MODEL_NAME,
-            token=HUGGINGFACE_AUTH_TOKEN
+        
+        # 강화 모델 로드
+        base_model = AutoModelForCausalLM.from_pretrained(
+            "meta-llama/Llama-2-7b-chat-hf",
+            use_auth_token=HUGGINGFACE_AUTH_TOKEN,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        reinforce_model = PeftModel.from_pretrained(
+            base_model,
+            "gaheeBang/peft-adapter-harrypotter-4bit"
         ).to(DEVICE)
-        print("Model loaded successfully!")
+
+        # 언러닝 모델 로드
+        base_model_unlearn = AutoModelForCausalLM.from_pretrained(
+            "meta-llama/Llama-2-7b-chat-hf",
+            use_auth_token=HUGGINGFACE_AUTH_TOKEN,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        unlearn_model = PeftModel.from_pretrained(
+            base_model_unlearn,
+            "paul02/unlearned_HP_8bit"
+        ).to(DEVICE)
+
+        print("Models loaded successfully!")
     except Exception as e:
-        print(f"Failed to load model: {e}")
+        print(f"Failed to load models: {e}")
         raise e
 
 def chat(request):
     """Process chat messages."""
-    global tokenizer, model
+    global tokenizer, reinforce_model, unlearn_model
 
-    if not tokenizer or not model:
-        return JsonResponse({"error": "Model not loaded."}, status=500)
+    if not tokenizer or not reinforce_model or not unlearn_model:
+        return JsonResponse({"error": "Models not loaded."}, status=500)
 
     if request.method == "POST":
         user_input = request.POST.get("message")
+        model_type = request.POST.get("model_type")  # "reinforce" or "unlearn"
+
         if not user_input:
             return JsonResponse({"error": "No message provided."}, status=400)
 
         if not user_input.strip():
             return JsonResponse({"error": "Message cannot be empty or whitespace."}, status=400)
 
+        if model_type not in ["reinforce", "unlearn"]:
+            return JsonResponse({"error": "Invalid model type. Use 'reinforce' or 'unlearn'."}, status=400)
+
         try:
-            # Tokenize input and ensure proper formatting
+            # 모델 선택
+            model = reinforce_model if model_type == "reinforce" else unlearn_model
+
+            # 입력 텍스트 토큰화
             inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=512)
             inputs = inputs["input_ids"].to(DEVICE)  # Extract input IDs and move to the correct device
-            print(f"Tokenized inputs: {inputs}")
 
-            # Generate response
+            # 응답 생성
             outputs = model.generate(inputs, max_length=150, num_return_sequences=1)
-            print(f"Model outputs: {outputs}")
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            print(f"Generated response: {response}")
             return JsonResponse({"message": response})
 
         except torch.cuda.OutOfMemoryError:
@@ -66,21 +95,16 @@ def chat(request):
             gc.collect()
             return JsonResponse({"error": "Out of memory. Please try again later."}, status=500)
         except Exception as e:
-            error_message = f"Exception occurred: {str(e)}"
-            detailed_traceback = traceback.format_exc()
-            print(f"Error message: {error_message}")
-            print(f"Traceback details:\n{detailed_traceback}")
+            print(f"Exception occurred: {e}")
             return JsonResponse({"error": "An internal error occurred. Check server logs for details."}, status=500)
     else:
         return JsonResponse({"error": "Invalid request method. Use POST."}, status=405)
 
 
-# Load the model when the server starts
+# 서버 시작 시 모델 로드
 try:
-    load_model()
+    load_models()
     print(f"Using device: {DEVICE}")
     print(f"CUDA available: {torch.cuda.is_available()}")
-    print(f"Model is on: {next(model.parameters()).device}")
-
 except Exception as e:
-    print("Failed to load model on startup.")
+    print("Failed to load models on startup.")

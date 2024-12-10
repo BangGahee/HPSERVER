@@ -3,31 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat with Llama</title>
+    <title>똑똑쪼꼬미</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #007BFF; /* 파랑 */
+            margin-bottom: 20px;
+        }
+
+        #chat-window {
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #fff;
+            width: 90%;
+            max-width: 600px;
+            height: 300px;
+            overflow-y: scroll;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            background-color: #f1f1f1;
+            color: #666;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .tab.active-reinforce {
+            background-color: #4CAF50; /* 초록 */
+            color: white;
+        }
+
+        .tab.active-unlearn {
+            background-color: #FF5722; /* 주황 */
+            color: white;
+        }
+
+        .tab:not(.active-reinforce):not(.active-unlearn):hover {
+            background-color: #e9e9e9;
+        }
+
+        form {
+            display: flex;
+            align-items: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px 0 0 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        button[type="submit"] {
+            background-color: #ccc; /* 기본은 비활성화 회색 */
+            color: white;
+            border-radius: 0 5px 5px 0;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            padding: 10px; /* 버튼 높이를 텍스트창에 맞게 조정 */
+        }
+
+        button[type="submit"].active-reinforce {
+            background-color: #4CAF50; /* 초록 */
+        }
+
+        button[type="submit"].active-unlearn {
+            background-color: #FF5722; /* 주황 */
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #chat-window p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        #chat-window p strong {
+            color: #333;
+        }
+
+        #chat-window p strong:first-child {
+            color: #007BFF;
+        }
+
+        #chat-window p strong:last-child {
+            color: #FF5722;
+        }
+
+        .logo {
+            margin-top: 20px;
+            width: 100px; /* 연세대학교 마크의 크기 */
+            height: auto;
+        }
+    </style>
 </head>
 <body>
-    <h1>Chat with Llama</h1>
+    {% load static %}
 
-    <div id="chat-window" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll;">
+    <h1>똑똑쪼꼬미 <img src="{% static 'yonsei.jpg' %}" class="logo" alt="Yonsei University Logo"></h1>
+
+    <div class="tabs">
+        <div class="tab active-reinforce" id="reinforce-tab" data-model="reinforce">Reinforce Model</div>
+        <div class="tab" id="unlearn-tab" data-model="unlearn">Unlearn</br> Model</div>
+    </div>
+
+    <div id="chat-window">
         <!-- 채팅 메시지가 여기에 표시됩니다 -->
     </div>
 
     <form method="POST" action="/chat/" id="chat-form">
         {% csrf_token %} <!-- CSRF 보호를 위한 토큰 -->
+        <input type="hidden" id="model-type" name="model_type" value="reinforce"> <!-- 기본은 강화 모델 -->
         <input type="text" id="message" name="message" placeholder="Type your message here" required>
-        <button type="submit">Send</button>
+        <button type="submit" class="active-reinforce">Send</button>
     </form>
-
     <script>
-        document.getElementById('chat-form').addEventListener('submit', async function(event) {
+        const chatForm = document.getElementById('chat-form');
+        const chatWindow = document.getElementById('chat-window');
+        const modelTypeInput = document.getElementById('model-type');
+        const tabs = document.querySelectorAll('.tab');
+        const sendButton = chatForm.querySelector('button[type="submit"]');
+
+        // 탭 클릭 이벤트 핸들러
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function () {
+                // 모든 탭의 active 클래스 제거
+                tabs.forEach(t => t.classList.remove('active-reinforce', 'active-unlearn'));
+
+                // 클릭된 탭 활성화
+                if (tab.id === 'reinforce-tab') {
+                    tab.classList.add('active-reinforce');
+                    chatWindow.style.borderColor = '#4CAF50'; // 초록
+                    sendButton.className = 'active-reinforce';
+                } else if (tab.id === 'unlearn-tab') {
+                    tab.classList.add('active-unlearn');
+                    chatWindow.style.borderColor = '#FF5722'; // 주황
+                    sendButton.className = 'active-unlearn';
+                }
+
+                // 모델 타입 변경
+                modelTypeInput.value = tab.dataset.model;
+            });
+        });
+
+        chatForm.addEventListener('submit', async function (event) {
             event.preventDefault(); // 기본 동작(페이지 새로고침) 방지
 
-            const form = event.target;
-            const formData = new FormData(form);
+            const formData = new FormData(chatForm);
 
             // 서버로 POST 요청
-            const response = await fetch(form.action, {
-                method: form.method,
+            const response = await fetch(chatForm.action, {
+                method: chatForm.method,
                 headers: {
                     "X-CSRFToken": getCookie('csrftoken'), // CSRF 토큰 추가
                 },
@@ -35,10 +193,10 @@
             });
 
             const data = await response.json();
-            const chatWindow = document.getElementById("chat-window");
             const message = formData.get('message');
+            const modelType = formData.get('model_type');
 
-            chatWindow.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+            chatWindow.innerHTML += `<p><strong>You [${modelType}]:</strong> ${message}</p>`;
             if (data.message) {
                 chatWindow.innerHTML += `<p><strong>Llama:</strong> ${data.message}</p>`;
             } else {
