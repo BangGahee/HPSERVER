@@ -37,7 +37,7 @@ def load_models():
         )
         reinforce_model = PeftModel.from_pretrained(
             base_model,
-            "gaheeBang/peft-adapter-harrypotter-4bit"
+            "jiyeony/harrypotter_8bit/tree/main"
         ).to(DEVICE)
 
         # 언러닝 모델 로드
