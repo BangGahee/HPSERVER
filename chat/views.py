@@ -4,7 +4,6 @@ import torch
 from django.http import JsonResponse
 from django.shortcuts import render
 import gc  # For garbage collection
-from transformers import BitsAndBytesConfig
 
 # Hugging Face 토큰과 디바이스 설정
 HUGGINGFACE_AUTH_TOKEN = "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"
@@ -29,22 +28,18 @@ def load_models():
             use_auth_token=HUGGINGFACE_AUTH_TOKEN
         )
         
-        # 8-bit 양자화 모델 로드
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-
-        # 강화 모델 로드 (8-bit quantization)
+        # 강화 모델 로드 (8-bit 없이 로드)
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
             torch_dtype=torch.float32,  # CPU에서 실행할 경우 float32로 설정
-            quantization_config=quantization_config,  # 8-bit 모델 설정
         )
         reinforce_model = PeftModel.from_pretrained(
             base_model,
             "jiyeony/harrypotter_8bit/tree/main"
         ).to(DEVICE)
 
-        # 언러닝 모델 로드 (8-bit quantization)
+        # 언러닝 모델 로드 (8-bit 없이 로드)
         unlearn_model = PeftModel.from_pretrained(
             base_model,
             "paul02/unlearned_HP_8bit"
