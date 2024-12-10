@@ -4,6 +4,7 @@ import torch
 from django.http import JsonResponse
 from django.shortcuts import render
 import gc  # For garbage collection
+from transformers import BitsAndBytesConfig
 
 # Hugging Face 토큰과 디바이스 설정
 HUGGINGFACE_AUTH_TOKEN = "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"
@@ -28,25 +29,24 @@ def load_models():
             use_auth_token=HUGGINGFACE_AUTH_TOKEN
         )
         
-        # 강화 모델 로드
+        # 8-bit 양자화 모델 로드
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+
+        # 강화 모델 로드 (8-bit quantization)
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float32,  # CPU에서 float16을 사용할 수 없으므로 float32로 변경
+            torch_dtype=torch.float32,  # CPU에서 실행할 경우 float32로 설정
+            quantization_config=quantization_config,  # 8-bit 모델 설정
         )
         reinforce_model = PeftModel.from_pretrained(
             base_model,
             "jiyeony/harrypotter_8bit/tree/main"
         ).to(DEVICE)
 
-        # 언러닝 모델 로드
-        base_model_unlearn = AutoModelForCausalLM.from_pretrained(
-            "meta-llama/Llama-2-7b-chat-hf",
-            use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float32,  # Same as above
-        )
+        # 언러닝 모델 로드 (8-bit quantization)
         unlearn_model = PeftModel.from_pretrained(
-            base_model_unlearn,
+            base_model,
             "paul02/unlearned_HP_8bit"
         ).to(DEVICE)
 
@@ -80,7 +80,7 @@ def chat(request):
             model = reinforce_model if model_type == "reinforce" else unlearn_model
 
             # 입력 텍스트 토큰화
-            inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=512)
+            inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=256)  # 응답 크기 제한
             inputs = inputs["input_ids"].to(DEVICE)  # Extract input IDs and move to the correct device
 
             # 응답 생성
@@ -88,10 +88,6 @@ def chat(request):
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             return JsonResponse({"message": response})
 
-        except torch.cuda.OutOfMemoryError:
-            torch.cuda.empty_cache()
-            gc.collect()
-            return JsonResponse({"error": "Out of memory. Please try again later."}, status=500)
         except Exception as e:
             print(f"Exception occurred: {e}")
             return JsonResponse({"error": "An internal error occurred. Check server logs for details."}, status=500)
