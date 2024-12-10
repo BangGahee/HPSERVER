@@ -33,7 +33,6 @@ def load_models():
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
             torch_dtype=torch.float16,
-            device_map="auto"
         )
         reinforce_model = PeftModel.from_pretrained(
             base_model,
@@ -45,7 +44,6 @@ def load_models():
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
             torch_dtype=torch.float16,
-            device_map="auto"
         )
         unlearn_model = PeftModel.from_pretrained(
             base_model_unlearn,
