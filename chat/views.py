@@ -7,7 +7,7 @@ import gc  # For garbage collection
 
 # Hugging Face 토큰과 디바이스 설정
 HUGGINGFACE_AUTH_TOKEN = "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"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = torch.device("cpu")
 
 # 모델과 토크나이저 전역 변수
 tokenizer = None
@@ -32,7 +32,7 @@ def load_models():
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float32,  # CPU에서 float16을 사용할 수 없으므로 float32로 변경
         )
         reinforce_model = PeftModel.from_pretrained(
             base_model,
@@ -43,7 +43,7 @@ def load_models():
         base_model_unlearn = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float32,  # Same as above
         )
         unlearn_model = PeftModel.from_pretrained(
             base_model_unlearn,
