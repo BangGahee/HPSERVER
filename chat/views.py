@@ -1,13 +1,15 @@
 from transformers import LlamaTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import torch
-from accelerate import infer_auto_device_map, dispatch_model
-import gc
+from django.http import JsonResponse
+from django.shortcuts import render
+import gc  # For garbage collection
 
 # Hugging Face 토큰과 디바이스 설정
 HUGGINGFACE_AUTH_TOKEN = "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"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# 모델과 토크나이저 전역 변수
 tokenizer = None
 reinforce_model = None
 unlearn_model = None
@@ -15,9 +17,9 @@ unlearn_model = None
 def index(request):
     """Render the main page."""
     return render(request, 'chat/index.html')
-    
+
 def load_models():
-    """Load the models and tokenizer with optimized device_map."""
+    """Load the models and tokenizer."""
     global tokenizer, reinforce_model, unlearn_model
     try:
         print("Loading models...")
@@ -27,35 +29,26 @@ def load_models():
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN
         )
-
-        # Load base model with device map
+        
+        # Load base model (without PEFT) for reinforcement learning model
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float16  # Use half-precision to save memory
         )
-
-        # Automatically infer device map
-        device_map = infer_auto_device_map(base_model, max_memory={"cpu": "24GB", "cuda": "16GB"})
-
-        # Dispatch model to devices
-        base_model = dispatch_model(base_model, device_map=device_map)
 
         # Load reinforcement model with PEFT adapter
         reinforce_model = PeftModel.from_pretrained(
             base_model,
             "gaheeBang/peft-adapter-harrypotter-4bit"
-        )
+        ).to(DEVICE)
 
-        # Load unlearn model
+        # Load base model (without PEFT) for unlearning model
         unlearn_model = AutoModelForCausalLM.from_pretrained(
             "paul02/unlearned_HP_8bit",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            device_map="auto",  # Automatically assign to available devices
-            torch_dtype=torch.float16
         )
 
-        print("Models loaded successfully with optimized device maps!")
+        print("Models loaded successfully!")
     except Exception as e:
         print(f"Failed to load models: {e}")
         raise e
@@ -85,29 +78,12 @@ def chat(request):
             model = reinforce_model if model_type == "reinforce" else unlearn_model
 
             # 입력 텍스트 토큰화
-            # inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=100)
-
-            inputs = tokenizer([user_input1, user_input2], return_tensors="pt", truncation=True, padding=True, max_length=100)
-            inputs = inputs["input_ids"].to(DEVICE)  # Move input IDs to the correct device
-
-            outputs = model.generate(inputs, max_length=100)
+            inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=50)
+            inputs = inputs["input_ids"].to(DEVICE)  # Extract input IDs and move to the correct device
 
             # 응답 생성
-            # Beam search 대신 sampling 사용
-            # outputs = model.generate(
-            #     inputs,
-            #     max_length=100,
-            #     num_return_sequences=1,
-            #     do_sample=True,
-            #     top_k=50,
-            #     top_p=0.9,
-            #     temperature=0.8,
-            # )
-
-
-            # outputs = model.generate(inputs, max_length=100, num_return_sequences=1)
-            # response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            responses = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+            outputs = model.generate(inputs, max_length=50, num_return_sequences=1)
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             return JsonResponse({"message": response})
 
         except torch.cuda.OutOfMemoryError:
