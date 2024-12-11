@@ -34,6 +34,7 @@ def load_models():
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
+            torch_dtype=torch.float16  # 모델을 FP16으로 바로 로드
         )
 
         # Load reinforcement model with PEFT adapter
@@ -46,7 +47,9 @@ def load_models():
         unlearn_model = AutoModelForCausalLM.from_pretrained(
             "paul02/unlearned_HP_8bit",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
+            torch_dtype=torch.float16  # 모델을 FP16으로 바로 로드
         )
+
 
         print("Models loaded successfully!")
     except Exception as e:
@@ -82,7 +85,10 @@ def chat(request):
             inputs = inputs["input_ids"].to(DEVICE)  # Extract input IDs and move to the correct device
 
             # 응답 생성
-            outputs = model.generate(inputs, max_length=150, num_return_sequences=1)
+            # Beam search 대신 sampling 사용
+            outputs = model.generate(inputs, max_length=100, num_return_sequences=1, do_sample=True)
+
+            # outputs = model.generate(inputs, max_length=100, num_return_sequences=1)
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             return JsonResponse({"message": response})
 
