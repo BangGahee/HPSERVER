@@ -26,8 +26,7 @@ SECRET_KEY = "django-insecure-1#y5vx*y*lq!9y07!dl4_fxc2m!w-)9d+=4dif+do*((_-=+o@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['18.212.66.198','localhost', '127.0.0.1']
-
+ALLOWED_HOSTS = ['18.212.66.198', '220.149.235.232', 'localhost', '127.0.0.1']
 
 # Application definition
 
@@ -127,4 +126,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CSRF 쿠키 설정
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_HTTPONLY = False  # JavaScript에서 접근 가능 (Ajax 요청용)
-CSRF_TRUSTED_ORIGINS = ['http://18.212.66.198:8000','http://127.0.0.1:8000', 'http://localhost:8000'] 
+CSRF_TRUSTED_ORIGINS = ['http://18.212.66.198:8000','http://127.0.0.1:8000', 'http://localhost:8000', 'http://220.149.235.232'] 
