@@ -36,6 +36,16 @@
             transition: border-color 0.3s;
         }
 
+        #chat-window p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        #chat-window p.error {
+            color: red; /* 에러 메시지 스타일 */
+            font-weight: bold;
+        }
+
         .tabs {
             display: flex;
             margin-bottom: 10px;
@@ -103,23 +113,6 @@
 
         button:hover {
             opacity: 0.9;
-        }
-
-        #chat-window p {
-            margin: 5px 0;
-            line-height: 1.5;
-        }
-
-        #chat-window p strong {
-            color: #333;
-        }
-
-        #chat-window p strong:first-child {
-            color: #007BFF;
-        }
-
-        #chat-window p strong:last-child {
-            color: #FF5722;
         }
 
         .logo {
@@ -199,7 +192,7 @@
             const modelType = formData.get('model_type');
 
             // 메시지 표시
-            chatWindow.innerHTML += `<p><strong>You [${modelType}]:</strong> ${message}</p>`;
+            chatWindow.innerHTML += `<p class="${modelType}"><strong>You [${modelType}]:</strong> ${message}</p>`;
 
             // 로딩 표시 활성화
             loadingIndicator.classList.add('active');
@@ -221,13 +214,13 @@
 
                 // 모델 응답 표시
                 if (data.message) {
-                    chatWindow.innerHTML += `<p><strong>Llama:</strong> ${data.message}</p>`;
+                    chatWindow.innerHTML += `<p class="${modelType}"><strong>Llama:</strong> ${data.message}</p>`;
                 } else {
-                    chatWindow.innerHTML += `<p><strong>Error:</strong> ${data.error}</p>`;
+                    chatWindow.innerHTML += `<p class="error"><strong>Error:</strong> ${data.error || "An unexpected error occurred."}</p>`;
                 }
             } catch (error) {
                 loadingIndicator.classList.remove('active');
-                chatWindow.innerHTML += `<p><strong>Error:</strong> Something went wrong.</p>`;
+                chatWindow.innerHTML += `<p class="error"><strong>Error:</strong> Unable to process your request. Please try again later.</p>`;
             }
 
             // 입력 필드 초기화
