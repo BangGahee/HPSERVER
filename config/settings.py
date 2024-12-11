@@ -127,3 +127,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_HTTPONLY = False  # JavaScript에서 접근 가능 (Ajax 요청용)
 CSRF_TRUSTED_ORIGINS = ['http://18.212.66.198:8000','http://127.0.0.1:8000', 'http://localhost:8000', 'http://220.149.235.232'] 
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
+]
