@@ -81,15 +81,29 @@ def chat(request):
             model = reinforce_model if model_type == "reinforce" else unlearn_model
 
             # 입력 텍스트 토큰화
-            inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=512)
-            inputs = inputs["input_ids"].to(DEVICE)  # Extract input IDs and move to the correct device
+            # inputs = tokenizer(user_input, return_tensors="pt", truncation=True, max_length=100)
+
+            inputs = tokenizer([user_input1, user_input2], return_tensors="pt", truncation=True, padding=True, max_length=100)
+            inputs = inputs["input_ids"].to(DEVICE)  # Move input IDs to the correct device
+
+            outputs = model.generate(inputs, max_length=100)
 
             # 응답 생성
             # Beam search 대신 sampling 사용
-            outputs = model.generate(inputs, max_length=100, num_return_sequences=1, do_sample=True)
+            # outputs = model.generate(
+            #     inputs,
+            #     max_length=100,
+            #     num_return_sequences=1,
+            #     do_sample=True,
+            #     top_k=50,
+            #     top_p=0.9,
+            #     temperature=0.8,
+            # )
+
 
             # outputs = model.generate(inputs, max_length=100, num_return_sequences=1)
-            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            responses = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
             return JsonResponse({"message": response})
 
         except torch.cuda.OutOfMemoryError:

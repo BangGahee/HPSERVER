@@ -127,6 +127,16 @@
             width: 100px; /* 연세대학교 마크의 크기 */
             height: auto;
         }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .loading.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -143,6 +153,8 @@
         <!-- 채팅 메시지가 여기에 표시됩니다 -->
     </div>
 
+    <div class="loading" id="loading-indicator">Loading...</div>
+
     <form method="POST" action="/chat/" id="chat-form">
         {% csrf_token %} <!-- CSRF 보호를 위한 토큰 -->
         <input type="hidden" id="model-type" name="model_type" value="reinforce"> <!-- 기본은 강화 모델 -->
@@ -155,6 +167,7 @@
         const modelTypeInput = document.getElementById('model-type');
         const tabs = document.querySelectorAll('.tab');
         const sendButton = chatForm.querySelector('button[type="submit"]');
+        const loadingIndicator = document.getElementById('loading-indicator');
 
         // 탭 클릭 이벤트 핸들러
         tabs.forEach(tab => {
@@ -182,29 +195,44 @@
             event.preventDefault(); // 기본 동작(페이지 새로고침) 방지
 
             const formData = new FormData(chatForm);
-
-            // 서버로 POST 요청
-            const response = await fetch(chatForm.action, {
-                method: chatForm.method,
-                headers: {
-                    "X-CSRFToken": getCookie('csrftoken'), // CSRF 토큰 추가
-                },
-                body: new URLSearchParams(formData),
-            });
-
-            const data = await response.json();
             const message = formData.get('message');
             const modelType = formData.get('model_type');
 
+            // 메시지 표시
             chatWindow.innerHTML += `<p><strong>You [${modelType}]:</strong> ${message}</p>`;
-            if (data.message) {
-                chatWindow.innerHTML += `<p><strong>Llama:</strong> ${data.message}</p>`;
-            } else {
-                chatWindow.innerHTML += `<p><strong>Error:</strong> ${data.error}</p>`;
+
+            // 로딩 표시 활성화
+            loadingIndicator.classList.add('active');
+
+            // 서버로 POST 요청
+            try {
+                const response = await fetch(chatForm.action, {
+                    method: chatForm.method,
+                    headers: {
+                        "X-CSRFToken": getCookie('csrftoken'), // CSRF 토큰 추가
+                    },
+                    body: new URLSearchParams(formData),
+                });
+
+                const data = await response.json();
+
+                // 로딩 표시 비활성화
+                loadingIndicator.classList.remove('active');
+
+                // 모델 응답 표시
+                if (data.message) {
+                    chatWindow.innerHTML += `<p><strong>Llama:</strong> ${data.message}</p>`;
+                } else {
+                    chatWindow.innerHTML += `<p><strong>Error:</strong> ${data.error}</p>`;
+                }
+            } catch (error) {
+                loadingIndicator.classList.remove('active');
+                chatWindow.innerHTML += `<p><strong>Error:</strong> Something went wrong.</p>`;
             }
 
             // 입력 필드 초기화
             document.getElementById("message").value = '';
+            chatWindow.scrollTop = chatWindow.scrollHeight; // 스크롤 하단으로 이동
         });
 
         // CSRF 토큰을 쿠키에서 가져오는 함수
