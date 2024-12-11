@@ -23,34 +23,30 @@ def load_models():
     global tokenizer, reinforce_model, unlearn_model
     try:
         print("Loading models...")
+        
+        # Load tokenizer
         tokenizer = LlamaTokenizer.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN
         )
         
-        # 강화 모델 로드
+        # Load base model (without PEFT) for reinforcement learning model
         base_model = AutoModelForCausalLM.from_pretrained(
             "meta-llama/Llama-2-7b-chat-hf",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float16,
-            device_map="auto"
         )
+
+        # Load reinforcement model with PEFT adapter
         reinforce_model = PeftModel.from_pretrained(
             base_model,
             "gaheeBang/peft-adapter-harrypotter-4bit"
         ).to(DEVICE)
 
-        # 언러닝 모델 로드
-        base_model_unlearn = AutoModelForCausalLM.from_pretrained(
-            "meta-llama/Llama-2-7b-chat-hf",
+        # Load base model (without PEFT) for unlearning model
+        unlearn_model = AutoModelForCausalLM.from_pretrained(
+            "paul02/unlearned_HP_8bit",
             use_auth_token=HUGGINGFACE_AUTH_TOKEN,
-            torch_dtype=torch.float16,
-            device_map="auto"
         )
-        unlearn_model = PeftModel.from_pretrained(
-            base_model_unlearn,
-            "paul02/unlearned_HP_8bit"
-        ).to(DEVICE)
 
         print("Models loaded successfully!")
     except Exception as e:
